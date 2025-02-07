@@ -49,7 +49,7 @@ FONTS = [
 
 
 def get_creature(back_clip):
-    f = random.choice(os.listdir(STICKERS))
+    f = get_random_file(STICKERS)
     img = ImageClip(
         STICKERS / f,
         duration=DURATION
@@ -99,9 +99,12 @@ def get_txt():
      ).with_position("center")
     return text_clip
 
+def get_random_file(directory):
+    files = os.listdir(directory)
+    return random.choice([f for f in files if not f.startswith(".")])
 
 def get_clip():
-    f = random.choice(os.listdir(BCKGRND_DIR))
+    f = get_random_file(BCKGRND_DIR)
     img = Image.open(BCKGRND_DIR / f)
     x_top = np.random.uniform(0, img.size[0] - 1080)
     y_top = np.random.uniform(0, img.size[1] - 1920)
@@ -115,7 +118,7 @@ def get_clip():
 
 
 def get_audio():
-    f = random.choice(os.listdir(AUDIO_DIR))
+    f = get_random_file(AUDIO_DIR)
     print(f)
     audio = AudioFileClip(AUDIO_DIR / f)
     lo = np.random.uniform(0, np.max([0, audio.duration - DURATION]))
@@ -166,7 +169,7 @@ def main():
     today = datetime.today().strftime('%Y_%m_%d')
     n = np.random.randint(4, 8)
     n = 5
-    for hr in tqdm(range(3, 4)):
+    for hr in tqdm(range(1, 15)):
         clip = get_clip()
         audio = get_audio()
         clip = clip.with_audio(audio)
