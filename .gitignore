@@ -1,5 +1,6 @@
 *.mp4
 *.mp3
+*.aif
 *.wav
 .DS_Store
 *.xml
