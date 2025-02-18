@@ -1,3 +1,4 @@
+import math
 import os
 
 from moviepy import ImageClip, TextClip, CompositeVideoClip, AudioFileClip
@@ -16,18 +17,23 @@ STICKERS = IMG_DIR / "stickers"
 VID_OUT = DATA_DIR / "vid_out"
 CACHE = DATA_DIR / "cache"
 AUDIO_DIR = DATA_DIR / "sound"
-DURATION = 15
+DURATION = 4
 FUNCTIONS = [
     np.sin,
     np.cos,
     np.tan,
 ]
 COLORS = [
-    "#ff0000",
-    "#ffac00",
-    "#fff100",
-    "#0bff00",
-    "#00f6ff"
+    "#f77866",
+    "#fd909c",
+    "#d11b20",
+    # "#692e29",
+    "#c7e67b",
+    "#96b2de",
+    "#f7b819",
+    # "#a98a2e",
+    "#763374",
+    "#00b1d1"
 ]
 
 # list of matplotlib fonts rendered many of them as squares. whatever:
@@ -48,28 +54,123 @@ FONTS = [
 ]
 
 
+class Creature:
+    def __init__(self,
+                 img,
+                 x,
+                 y,
+                 back_clip,
+                 x_add=None,
+                 y_add=None,
+                 ):
+        self.img = img
+        self.x = x
+        self.y = y
+        self.back_clip = back_clip
+        self.x_delta = back_clip.size[0] / 30
+        self.y_delta = back_clip.size[1] / 30
+        if not x_add:
+            self.x_add = random.choice([np.add, np.subtract])
+        if not y_add:
+            self.y_add = random.choice([np.add, np.subtract])
+        break_nums = []
+        for draws in range(1, int(np.random.uniform(2, 5))):
+            break_nums += [np.random.randint(0, 10)]
+        break_nums = list(sorted(set([0] + break_nums)))
+        x_barrier = self.get_barrier(0)
+        y_barrier = self.get_barrier(1)
+        self.barriers = {
+            0: {
+                    "left": 0,
+                    "right": self.back_clip.size[0],
+                    "top": 0,
+                    "bottom": self.back_clip.size[1]
+                }
+        }
+        break_nums = [0]
+        for i in range(1, 11):
+            if i in break_nums:
+                x_barrier = self.get_barrier(0)
+                y_barrier = self.get_barrier(1)
+                self.barriers[i] = {
+                    "left": x_barrier["low"],
+                    "right": x_barrier["high"],
+                    "top": y_barrier["low"],
+                    "bottom": y_barrier["high"]
+                }
+            else:
+                self.barriers[i] = self.barriers[0]
+
+    def get_barrier(self, side):
+        barrier_start = np.random.uniform(
+            0,
+            self.back_clip.size[side]
+        )
+        return {
+            "low": barrier_start,
+            "high": min(
+                        (
+                                barrier_start +
+                                np.random.uniform(
+                                    0, self.back_clip.size[side]
+                                )
+                        ),
+                        self.back_clip.size[side]
+                    )
+        }
+
+    def x_move(self, t):
+        f = random.choice(FUNCTIONS)
+        f = lambda x: 1
+        res = self.x_add(self.x, f(t / DURATION)*self.x_delta)
+        if self.x_add == np.subtract:
+            if res < self.barriers[int(math.floor(t/DURATION*100)/10)]["left"]:
+                self.x_add = np.add
+        else:
+            if res > self.barriers[int(math.floor(t/DURATION*100)/10)]["right"]:
+                self.x_add = np.subtract
+        self.x = self.x_add(self.x, f(t / DURATION)*self.x_delta)
+
+    def y_move(self, t):
+        f = random.choice(FUNCTIONS)
+        f = lambda x: 1
+        res = self.y_add(self.y, f(t / DURATION)*self.y_delta)
+        if self.y_add == np.add:
+            if res > self.barriers[int(math.floor(t/DURATION*100)/10)]["bottom"]:
+                self.y_add = np.subtract
+        else:
+            if res < self.barriers[int(math.floor(t/DURATION*100)/10)]["top"]:
+                self.y_add = np.add
+        self.y = self.y_add(self.y, f(t / DURATION)*self.y_delta)
+
+
+def move_creature(creature, t):
+    creature.x_move(t=t)
+    creature.y_move(t=t)
+    return creature.x, creature.y
+
+
 def get_creature(back_clip):
     f = get_random_file(STICKERS)
     img = ImageClip(
         STICKERS / f,
         duration=DURATION
     )
-    x_f, y_f = random.choice(FUNCTIONS), random.choice(FUNCTIONS)
+    creature = Creature(img=img,
+                        x=np.random.uniform(back_clip.size[0]),
+                        y=np.random.uniform(back_clip.size[1]),
+                        back_clip=back_clip
+                        )
 
-    def move_creature(t, s, back_clip, x_c, y_c):
-
-        x, y = np.abs(x_f(t)*s), np.abs(y_f(t)*s)
-        x += x_c
-        y += y_c
-        if x > back_clip.size[0]:
-            x = x - back_clip.size[0]*np.floor(x / back_clip.size[0])
-        if y > back_clip.size[1]:
-            y = y - back_clip.size[1]*np.floor(y / back_clip.size[1])
-        return x, y
-
-    s = np.random.uniform(100, 500)
     x_c, y_c = np.random.uniform(0, back_clip.size[0]), np.random.uniform(0, back_clip.size[1])
-    img = img.with_position(lambda t: move_creature(t, s, back_clip, x_c, y_c))
+    x_target = np.random.uniform(0, back_clip.size[0])
+    x_0 = (back_clip.size[0] / 2) - (img.size[0] / 2)
+    y_0 = (back_clip.size[1] / 2) - (img.size[1] / 2)
+    img = img.with_position(lambda t: move_creature(
+        creature=creature,
+        t=t,
+        )
+    )
     return img
 
 
@@ -99,9 +200,11 @@ def get_txt():
      ).with_position("center")
     return text_clip
 
+
 def get_random_file(directory):
     files = os.listdir(directory)
     return random.choice([f for f in files if not f.startswith(".")])
+
 
 def get_clip():
     f = get_random_file(BCKGRND_DIR)
@@ -127,49 +230,10 @@ def get_audio():
     return audio
 
 
-def get_times():
-    """
-    Monday: 7 am, 11 am, 2 pm
-    Tuesday: 7 am, 10 am, 1 pm
-    Wednesday: 7 am, 9 am, 4 pm
-    Thursday: 7 am, 9 am, 2 pm
-    Friday: 7 am, 11 am, 3 pm
-    Saturday:  7 am, 12 pm, 3 pm
-    Sunday: 7 am, 11 am, 7 pm
-    :return:
-    """
-    today = datetime.now().strftime("%A")
-    times = {
-        "Monday": [
-            "7", "11", "14"
-        ],
-        "Tuesday": [
-            "7", "10", "13"
-        ],
-        "Wednesday": [
-            "7", "9", "16"
-        ],
-        "Thursday": [
-            "7", "9", "14"
-        ],
-        "Friday": [
-            "7", "11", "15"
-        ],
-        "Saturday": [
-            "7", "12", "15"
-        ],
-        "Sunday": [
-            "7", "11", "19"
-        ],
-    }
-    return times[today]
-
-
 def main():
-    today = datetime.today().strftime('%Y_%m_%d')
     n = np.random.randint(4, 8)
     n = 5
-    for hr in tqdm(range(1, 15)):
+    for hr in tqdm(range(1,2)):
         clip = get_clip()
         audio = get_audio()
         clip = clip.with_audio(audio)
