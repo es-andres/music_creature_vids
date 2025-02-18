@@ -17,23 +17,23 @@ STICKERS = IMG_DIR / "stickers"
 VID_OUT = DATA_DIR / "vid_out"
 CACHE = DATA_DIR / "cache"
 AUDIO_DIR = DATA_DIR / "sound"
-DURATION = 4
+DURATION = 5
 FUNCTIONS = [
     np.sin,
     np.cos,
     np.tan,
+    # lambda x: np.pow(x, 2),
+    # lambda x: np.pow(x, 3),
 ]
 COLORS = [
-    "#f77866",
-    "#fd909c",
-    "#d11b20",
-    # "#692e29",
-    "#c7e67b",
-    "#96b2de",
-    "#f7b819",
-    # "#a98a2e",
-    "#763374",
-    "#00b1d1"
+    # "#032e55",
+    "#c73d0f",
+    "#c42f20",
+    "#cea25b",
+    "#e8d6b3",
+    "#a0a7b6",
+    "#d8baa5",
+    "#e7ca9e",
 ]
 
 # list of matplotlib fonts rendered many of them as squares. whatever:
@@ -63,35 +63,52 @@ class Creature:
                  x_add=None,
                  y_add=None,
                  ):
+        self.y_f = random.choice(FUNCTIONS)
+        self.y_f_min = np.abs(self.y_f(0))
+        self.y_f_max = np.abs(self.y_f(DURATION))
+        self.x_f = random.choice(FUNCTIONS)
+        self.x_f_min = np.abs(self.x_f(0))
+        self.x_f_max = np.abs(self.x_f(DURATION))
+        self.x_f_sub = np.random.uniform(0, DURATION)
+        self.y_f_sub = np.random.uniform(0, DURATION)
         self.img = img
         self.x = x
         self.y = y
         self.back_clip = back_clip
-        self.x_delta = back_clip.size[0] / 30
-        self.y_delta = back_clip.size[1] / 30
+        s = 300
+        self.x_delta = back_clip.size[0] / np.random.normal(s, s*.15)
+        self.y_delta = back_clip.size[1] / np.random.normal(s, s*.15)
         if not x_add:
-            self.x_add = random.choice([np.add, np.subtract])
+            self.x_move = random.choice([np.add, np.subtract])
         if not y_add:
-            self.y_add = random.choice([np.add, np.subtract])
-        break_nums = []
-        for draws in range(1, int(np.random.uniform(2, 5))):
-            break_nums += [np.random.randint(0, 10)]
-        break_nums = list(sorted(set([0] + break_nums)))
-        x_barrier = self.get_barrier(0)
-        y_barrier = self.get_barrier(1)
+            self.y_move = random.choice([np.add, np.subtract])
+        barrier_nums = [0]
+        for draws in range(1, int(np.random.uniform(1, 1))):
+            barrier_nums += [np.random.randint(0, 10)]
+        barrier_nums = list(sorted(set(barrier_nums)))
+        delta_nums = [0]
+        for draws in range(1, int(np.random.uniform(5, 10))):
+            delta_nums += [np.random.randint(0, 10)]
+        delta_nums = list(sorted(set(delta_nums)))
+        buffer = 0.05
+        self.deltas = {
+            0: {
+                "x": self.x_delta,
+                "y": self.y_delta
+            }
+        }
         self.barriers = {
             0: {
-                    "left": 0,
-                    "right": self.back_clip.size[0],
-                    "top": 0,
-                    "bottom": self.back_clip.size[1]
+                    "left": -self.back_clip.size[0] * buffer,
+                    "right": self.back_clip.size[0] * (1-buffer),
+                    "top": -self.back_clip.size[1] * buffer,
+                    "bottom": self.back_clip.size[1] * (1-buffer),
                 }
         }
-        break_nums = [0]
         for i in range(1, 11):
-            if i in break_nums:
-                x_barrier = self.get_barrier(0)
-                y_barrier = self.get_barrier(1)
+            if i in barrier_nums:
+                x_barrier = self.get_barrier(side=0, buffer=0)
+                y_barrier = self.get_barrier(side=1, buffer=0)
                 self.barriers[i] = {
                     "left": x_barrier["low"],
                     "right": x_barrier["high"],
@@ -100,53 +117,87 @@ class Creature:
                 }
             else:
                 self.barriers[i] = self.barriers[0]
+        for i in range(1, 11):
+            if i in delta_nums:
+                x_denom = np.random.normal(s, s*.25)
+                y_denom = np.random.normal(s, s*.25)
+                self.deltas[i] = {
+                    "x": self.back_clip.size[0] / x_denom,
+                    "y": self.back_clip.size[1] / y_denom
+                }
+            else:
+                self.deltas[i] = self.deltas[0]
 
-    def get_barrier(self, side):
-        barrier_start = np.random.uniform(
-            0,
-            self.back_clip.size[side]
-        )
+    def get_barrier(self, side, buffer):
+        barrier_start = (
+                            self.img.size[side] +
+                            np.random.uniform(self.img.size[side],
+                                              self.back_clip.size[side] - self.img.size[side]
+                                              )
+                        )
         return {
             "low": barrier_start,
             "high": min(
                         (
                                 barrier_start +
-                                np.random.uniform(
-                                    0, self.back_clip.size[side]
-                                )
+                                np.random.uniform(self.img.size[side], self.back_clip.size[side]*.9)
                         ),
-                        self.back_clip.size[side]
+                        self.back_clip.size[side]*(1+buffer)
                     )
         }
 
-    def x_move(self, t):
-        f = random.choice(FUNCTIONS)
-        f = lambda x: 1
-        res = self.x_add(self.x, f(t / DURATION)*self.x_delta)
-        if self.x_add == np.subtract:
-            if res < self.barriers[int(math.floor(t/DURATION*100)/10)]["left"]:
-                self.x_add = np.add
+    def scale_x_f(self, t):
+        if self.x_f not in [np.cos, np.tan, np.sin]:
+            res = (np.abs(self.x_f_sub - self.x_f(t)) - self.x_f_min) / (self.x_f_max - self.x_f_min)
         else:
-            if res > self.barriers[int(math.floor(t/DURATION*100)/10)]["right"]:
-                self.x_add = np.subtract
-        self.x = self.x_add(self.x, f(t / DURATION)*self.x_delta)
+            res = min(np.abs(self.x_f_sub - self.x_f(t)), 1)
+        return res
 
-    def y_move(self, t):
-        f = random.choice(FUNCTIONS)
-        f = lambda x: 1
-        res = self.y_add(self.y, f(t / DURATION)*self.y_delta)
-        if self.y_add == np.add:
-            if res > self.barriers[int(math.floor(t/DURATION*100)/10)]["bottom"]:
-                self.y_add = np.subtract
+    def scale_y_f(self, t):
+        if self.x_f not in [np.cos, np.tan, np.sin]:
+            res = (np.abs(self.y_f_sub - self.y_f(t)) - self.y_f_min) / (self.y_f_max - self.y_f_min)
         else:
-            if res < self.barriers[int(math.floor(t/DURATION*100)/10)]["top"]:
-                self.y_add = np.add
-        self.y = self.y_add(self.y, f(t / DURATION)*self.y_delta)
+            res = min(np.abs(self.y_f_sub - self.y_f(t)), 1)
+        return res
+
+    def x_shift(self, t):
+        t_lookup = int(math.floor(t/DURATION*100)/10)
+        res = self.x_move(self.x, self.scale_x_f(t)*self.deltas[t_lookup]["x"])
+        left, right = self.barriers[t_lookup]["left"], self.barriers[t_lookup]["right"]
+        if self.x_move == np.subtract:
+            if res < left:
+                self.x_move = np.add
+        else:
+            if res > right:
+                self.x_move = np.subtract
+        res = self.x_move(self.x, self.scale_x_f(t)*self.deltas[t_lookup]["x"])
+        # if not left < res < right:
+        #     print("x out of bounds", res)
+        #     print(self.x_move, self.x, self.scale_x_f(t), self.deltas[t_lookup]["x"])
+        #     print("left", left, "right", right)
+        self.x = self.x_move(self.x, self.scale_x_f(t)*self.deltas[t_lookup]["x"])
+
+    def y_shift(self, t):
+        t_lookup = int(math.floor(t / DURATION * 100) / 10)
+        res = self.y_move(self.y, self.scale_y_f(t)*self.deltas[t_lookup]["y"])
+        top, bottom = self.barriers[t_lookup]["top"], self.barriers[t_lookup]["bottom"]
+        if self.y_move == np.add:
+            if res > bottom:
+                self.y_move = np.subtract
+        else:
+            if res < top:
+                self.y_move = np.add
+        res = self.y_move(self.y, self.scale_y_f(t)*self.deltas[t_lookup]["y"])
+        # if not top < res < bottom:
+        #     print("y out of bounds", res)
+        #     print(self.y_move, self.y, self.scale_y_f(t), self.deltas[t_lookup]["y"])
+        #     print("top", top, "bottom", bottom)
+        self.y = self.y_move(self.y, self.scale_y_f(t)*self.deltas[t_lookup]["y"])
 
 
 def move_creature(creature, t):
-    creature.x_move(t=t)
-    creature.y_move(t=t)
+    creature.x_shift(t=t)
+    creature.y_shift(t=t)
     return creature.x, creature.y
 
 
@@ -221,9 +272,10 @@ def get_clip():
 
 
 def get_audio():
-    f = get_random_file(AUDIO_DIR)
-    print(f)
-    audio = AudioFileClip(AUDIO_DIR / f)
+    sound_dirs = ["beats", "sets"]
+    d = np.random.choice(sound_dirs, 1, [0.2, 0.8])[0]
+    f = get_random_file(AUDIO_DIR / d)
+    audio = AudioFileClip(AUDIO_DIR / d / f)
     lo = np.random.uniform(0, np.max([0, audio.duration - DURATION]))
     hi = lo + np.min([audio.duration, DURATION])
     audio = audio[lo:hi]
@@ -231,9 +283,8 @@ def get_audio():
 
 
 def main():
-    n = np.random.randint(4, 8)
-    n = 5
-    for hr in tqdm(range(1,2)):
+    n_clips = 10
+    for hr in tqdm(range(1, n_clips + 1)):
         clip = get_clip()
         audio = get_audio()
         clip = clip.with_audio(audio)
