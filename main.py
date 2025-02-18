@@ -17,7 +17,7 @@ STICKERS = IMG_DIR / "stickers"
 VID_OUT = DATA_DIR / "vid_out"
 CACHE = DATA_DIR / "cache"
 AUDIO_DIR = DATA_DIR / "sound"
-DURATION = 5
+DURATION = 15
 FUNCTIONS = [
     np.sin,
     np.cos,
@@ -273,7 +273,7 @@ def get_clip():
 
 def get_audio():
     sound_dirs = ["beats", "sets"]
-    d = np.random.choice(sound_dirs, 1, [0.2, 0.8])[0]
+    d = np.random.choice(sound_dirs, 1, p=[0.3, 0.7])[0]
     f = get_random_file(AUDIO_DIR / d)
     audio = AudioFileClip(AUDIO_DIR / d / f)
     lo = np.random.uniform(0, np.max([0, audio.duration - DURATION]))
@@ -283,8 +283,9 @@ def get_audio():
 
 
 def main():
+    n_start = 9
     n_clips = 10
-    for hr in tqdm(range(1, n_clips + 1)):
+    for hr in tqdm(range(n_start, n_start + n_clips)):
         clip = get_clip()
         audio = get_audio()
         clip = clip.with_audio(audio)
