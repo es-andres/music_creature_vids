@@ -170,11 +170,6 @@ class Creature:
         else:
             if res > right:
                 self.x_move = np.subtract
-        res = self.x_move(self.x, self.scale_x_f(t)*self.deltas[t_lookup]["x"])
-        # if not left < res < right:
-        #     print("x out of bounds", res)
-        #     print(self.x_move, self.x, self.scale_x_f(t), self.deltas[t_lookup]["x"])
-        #     print("left", left, "right", right)
         self.x = self.x_move(self.x, self.scale_x_f(t)*self.deltas[t_lookup]["x"])
 
     def y_shift(self, t):
@@ -187,11 +182,6 @@ class Creature:
         else:
             if res < top:
                 self.y_move = np.add
-        res = self.y_move(self.y, self.scale_y_f(t)*self.deltas[t_lookup]["y"])
-        # if not top < res < bottom:
-        #     print("y out of bounds", res)
-        #     print(self.y_move, self.y, self.scale_y_f(t), self.deltas[t_lookup]["y"])
-        #     print("top", top, "bottom", bottom)
         self.y = self.y_move(self.y, self.scale_y_f(t)*self.deltas[t_lookup]["y"])
 
 
@@ -203,20 +193,17 @@ def move_creature(creature, t):
 
 def get_creature(back_clip):
     f = get_random_file(STICKERS)
+    size_scale = np.random.uniform(.5, 1)
     img = ImageClip(
         STICKERS / f,
         duration=DURATION
     )
+    img = img.resized(height=round(img.size[0]*size_scale), width=round(img.size[0]*size_scale))
     creature = Creature(img=img,
                         x=np.random.uniform(back_clip.size[0]),
                         y=np.random.uniform(back_clip.size[1]),
                         back_clip=back_clip
                         )
-
-    x_c, y_c = np.random.uniform(0, back_clip.size[0]), np.random.uniform(0, back_clip.size[1])
-    x_target = np.random.uniform(0, back_clip.size[0])
-    x_0 = (back_clip.size[0] / 2) - (img.size[0] / 2)
-    y_0 = (back_clip.size[1] / 2) - (img.size[1] / 2)
     img = img.with_position(lambda t: move_creature(
         creature=creature,
         t=t,
@@ -266,13 +253,16 @@ def get_clip():
     back_clip = ImageClip(np.array(img), duration=DURATION,
                           is_mask=False)
     txt = get_txt()
-    creature = get_creature(back_clip)
-    clip = CompositeVideoClip([back_clip, creature, txt])
+    creatures = []
+    for i in range(0, np.random.randint(2, 5)):
+        creature = get_creature(back_clip)
+        creatures += [creature]
+    clip = CompositeVideoClip([back_clip] + creatures + [txt])
     return clip
 
 
 def get_audio():
-    sound_dirs = ["beats", "sets"]
+    sound_dirs = ["sets", "sets"]
     d = np.random.choice(sound_dirs, 1, p=[0.3, 0.7])[0]
     f = get_random_file(AUDIO_DIR / d)
     audio = AudioFileClip(AUDIO_DIR / d / f)
@@ -283,7 +273,7 @@ def get_audio():
 
 
 def main():
-    n_start = 9
+    n_start = 16
     n_clips = 10
     for hr in tqdm(range(n_start, n_start + n_clips)):
         clip = get_clip()
