@@ -7,9 +7,9 @@ name = "pypi"
 matplotlib = "*"
 pydub = "*"
 moviepy = "*"
+librosa = "*"
 
 [dev-packages]
 
 [requires]
 python_version = "3.9"
-python_full_version = "3.9.18"
