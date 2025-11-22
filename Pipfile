@@ -8,8 +8,11 @@ matplotlib = "*"
 pydub = "*"
 moviepy = "*"
 librosa = "*"
-
-[dev-packages]
+opencv-python = "*"
+numpy = "<2.0"
+scipy = "*"
+ultralytics = "*"
+tqdm = "*"
 
 [requires]
 python_version = "3.9"
